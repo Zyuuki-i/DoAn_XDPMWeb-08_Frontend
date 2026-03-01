@@ -36,28 +36,75 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const tableRef = useRef(null);
 
+  // useEffect(() => {
+  //   axios
+  //     .get(`${API_URL}/api/products`, { timeout: 30000 })
+  //     .then((response) => {
+  //       const payload = response?.data;
+  //       const list = Array.isArray(payload)
+  //         ? payload
+  //         : payload?.data || [];
+  //       setProducts(list);
+  //       setError('');
+  //     })
+  //     .catch((err) => {
+  //       setProducts([]);
+  //       setError(
+  //         err?.response?.status
+  //           ? `Lỗi API ${err.response.status}`
+  //           : 'Không kết nối được API'
+  //       );
+  //     })
+  //     .finally(() => {
+  //       setLoading(false);
+  //     });
+  // }, []);
   useEffect(() => {
-    axios
-      .get(`${API_URL}/api/products`, { timeout: 10000 })
-      .then((response) => {
+    let isMounted = true;
+    const fetchProducts = async (retry = true) => {
+      try {
+        setLoading(true);
+
+        const response = await axios.get(
+          `${API_URL}/api/products`,
+          { timeout: 30000 }
+        );
+
+        if (!isMounted) return;
+
         const payload = response?.data;
         const list = Array.isArray(payload)
           ? payload
           : payload?.data || [];
+
         setProducts(list);
         setError('');
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (!isMounted) return;
+
+        // Nếu timeout hoặc network error → thử lại 1 lần
+        if (retry && (err.code === 'ECONNABORTED' || !err.response)) {
+          console.log('Retrying after cold start...');
+          setTimeout(() => fetchProducts(false), 5000);
+          return;
+        }
+
         setProducts([]);
         setError(
           err?.response?.status
             ? `Lỗi API ${err.response.status}`
             : 'Không kết nối được API'
         );
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchProducts();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
