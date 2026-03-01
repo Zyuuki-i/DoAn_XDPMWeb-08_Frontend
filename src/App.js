@@ -36,31 +36,9 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const tableRef = useRef(null);
 
-  // useEffect(() => {
-  //   axios
-  //     .get(`${API_URL}/api/products`, { timeout: 30000 })
-  //     .then((response) => {
-  //       const payload = response?.data;
-  //       const list = Array.isArray(payload)
-  //         ? payload
-  //         : payload?.data || [];
-  //       setProducts(list);
-  //       setError('');
-  //     })
-  //     .catch((err) => {
-  //       setProducts([]);
-  //       setError(
-  //         err?.response?.status
-  //           ? `Lỗi API ${err.response.status}`
-  //           : 'Không kết nối được API'
-  //       );
-  //     })
-  //     .finally(() => {
-  //       setLoading(false);
-  //     });
-  // }, []);
   useEffect(() => {
     let isMounted = true;
+
     const fetchProducts = async (retry = true) => {
       try {
         setLoading(true);
@@ -101,7 +79,9 @@ function App() {
         }
       }
     };
+
     fetchProducts();
+
     return () => {
       isMounted = false;
     };
