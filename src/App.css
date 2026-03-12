@@ -125,6 +125,33 @@ body {
   margin-bottom: 18px;
 }
 
+.user-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.user-form input {
+  flex: 1;
+  min-width: 180px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+}
+
+.user-form button {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.user-form button[type="button"] {
+  background: #9ca3af;
+  color: white;
+}
+
 .card__header span {
   color: var(--muted);
   font-size: 13px;
@@ -132,6 +159,36 @@ body {
 
 .table-wrapper {
   overflow-x: auto;
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  background: white;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.table-wrapper th,
+.table-wrapper td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table-wrapper th {
+  background: #f8fafc;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.table-wrapper tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.table-wrapper tbody tr:hover {
+  background: #e0efff;
 }
 
 .product-image {
@@ -143,26 +200,77 @@ body {
 }
 
 .action {
+  min-width: 72px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
   background: var(--primary);
   color: white;
   border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
   cursor: pointer;
-  margin-right: 6px;
+  margin: 0 6px 6px 0;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(30, 136, 229, 0.25);
+  background-color: #1669c8;
 }
 
 .action.secondary {
   background: white;
   color: var(--primary-dark);
-  border: 1px solid var(--primary);
+  border: 2px solid var(--primary);
 }
 
+.action.secondary:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.danger {
+  min-width: 72px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin: 0 6px 6px 0;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(239, 68, 68, 0.25);
+  background-color: #dc2626;
+}
+
+.action-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .muted {
   color: var(--muted);
   font-size: 13px;
 }
-
 .cart__list {
   display: flex;
   flex-direction: column;

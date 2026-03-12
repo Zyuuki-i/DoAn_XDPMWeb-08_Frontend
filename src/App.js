@@ -18,7 +18,7 @@ pdfMake.vfs = pdfFonts?.pdfMake?.vfs || pdfFonts?.vfs || {};
 window.JSZip = JSZip;
 window.pdfMake = pdfMake;
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = 'http://localhost:8000';
 const FALLBACK_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -33,8 +33,21 @@ function App() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState('');
+  const [username, setUsername] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [userRole, setUserRole] = useState('customer');
+  const [editingUser, setEditingUser] = useState(null);
+
   const [selectedProduct, setSelectedProduct] = useState(null);
   const tableRef = useRef(null);
+
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const isUsersPage = path === '/users';
 
   useEffect(() => {
     let isMounted = true;
@@ -60,7 +73,6 @@ function App() {
       } catch (err) {
         if (!isMounted) return;
 
-        // Nếu timeout hoặc network error → thử lại 1 lần
         if (retry && (err.code === 'ECONNABORTED' || !err.response)) {
           console.log('Retrying after cold start...');
           setTimeout(() => fetchProducts(false), 5000);
@@ -86,6 +98,140 @@ function App() {
       isMounted = false;
     };
   }, []);
+
+  const fetchUsers = async (retry = 1) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/users`, {
+        timeout: 30000
+      });
+
+      const payload = response?.data;
+      const list = Array.isArray(payload) ? payload : payload?.data || [];
+
+      setUsers(list);
+      setUsersError('');
+    } catch (err) {
+      if (retry > 0) {
+        console.log("Retry API users...");
+        return fetchUsers(retry - 1);
+      }
+
+      setUsers([]);
+      setUsersError(
+        err?.response?.status
+          ? `Lỗi API ${err.response.status}`
+          : 'Không kết nối được API'
+      );
+    }
+  };
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    await fetchUsers(1);
+    setUsersLoading(false);
+  };
+
+  useEffect(() => {
+    if (!isUsersPage) return;
+    loadUsers();
+  }, [isUsersPage]);
+
+  const resetUserForm = () => {
+    setUsername('');
+    setUserEmail('');
+    setUserPassword('');
+    setUserRole('customer');
+    setEditingUser(null);
+  };
+
+  const startEditingUser = (user) => {
+    setEditingUser(user);
+    setUsername(user.username || '');
+    setUserEmail(user.email || '');
+    setUserRole(['admin','customer'].includes(user.role) ? user.role : 'customer');
+    setUserPassword('');
+  };
+
+  const submitUserForm = async (event) => {
+    event.preventDefault();
+
+    try {
+      const payload = {
+        username: username.trim(),
+        email: userEmail.trim(),
+        password: userPassword.trim(),
+        full_name: username.trim(),
+        address: '',
+        phone: '',
+        role: userRole,
+      };
+
+      if (editingUser && !payload.password) {
+        delete payload.password;
+      }
+
+      console.log('Submitting user form', { payload, editingUser });
+
+      if (editingUser) {
+        await axios.put(`${API_URL}/api/users/${editingUser.id}`, payload);
+      } else {
+        await axios.post(`${API_URL}/api/users`, payload);
+      }
+
+      resetUserForm();
+      loadUsers();
+    } catch (err) {
+      console.error('User request failed', err.response?.data || err);
+
+      let message = '';
+
+      if (err?.response) {
+        const data = err.response.data;
+
+        if (data?.message) message = data.message;
+        else if (data?.errors)
+          message = Object.values(data.errors).flat().join(' | ');
+        else message = `Lỗi API ${err.response.status}`;
+      } else {
+        message = 'Không kết nối được API';
+      }
+
+      setUsersError(message);
+    }
+  };
+
+  const deleteUser = (id) => {
+    if (!window.confirm('Xác nhận xóa user này?')) {
+      return;
+    }
+
+    axios
+      .delete(`${API_URL}/api/users/${id}`)
+      .then(() => {
+        if (editingUser?.id === id) {
+          resetUserForm();
+        }
+
+        loadUsers();
+      })
+      .catch((err) => {
+        console.error('Delete user failed', err);
+        let message = '';
+        if (err?.response) {
+          const data = err.response.data;
+          if (data?.message) {
+            message = data.message;
+          } else if (data?.errors) {
+            message = Object.values(data.errors).flat().join(' | ');
+          } else {
+            message = `Lỗi API ${err.response.status}`;
+          }
+        } else {
+          message = 'Không kết nối được API';
+        }
+        setUsersError(message);
+      });
+  };
 
   useEffect(() => {
     if (!tableRef.current) {
@@ -170,8 +316,10 @@ function App() {
           </div>
         </div>
         <nav className="nav">
-          <a href="#products">Sản phẩm</a>
+          {}
+          <a href={isUsersPage ? '/#products' : '#products'}>Sản phẩm</a>
           <a href="#cart">Giỏ hàng</a>
+          <a href="/users">Người dùng</a>
           <a href="#footer">Liên hệ</a>
         </nav>
       </header>
@@ -195,117 +343,213 @@ function App() {
       </section>
 
       <main className="content">
-        <section id="products" className="card">
-          <div className="card__header">
-            <h2>Danh sách điện thoại</h2>
-            <span>
-              DataTable: tìm kiếm, phân trang, export • {products.length} sản
-              phẩm
-            </span>
-          </div>
-          {error && (
-            <p className="muted">
-              {error}. Kiểm tra backend chạy ở {API_URL}.
-            </p>
-          )}
-          {!error && loading && (
-            <p className="muted">Đang tải dữ liệu...</p>
-          )}
-          <div className="table-wrapper">
-            <table ref={tableRef} className="display">
-              <thead>
-                <tr>
-                  <th>Hình</th>
-                  <th>Tên</th>
-                  <th>Hãng</th>
-                  <th>Giá</th>
-                  <th>Tồn kho</th>
-                  <th>Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="product-image"
-                        onError={(event) => {
-                          event.currentTarget.src = FALLBACK_IMAGE;
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <strong>{product.name}</strong>
-                      <div className="muted">{product.category}</div>
-                    </td>
-                    <td>{product.brand}</td>
-                    <td>{formatPrice(product.price)}</td>
-                    <td>{product.stock}</td>
-                    <td>
-                      <button
-                        className="action"
-                        onClick={() => addToCart(product)}
-                      >
-                        Thêm vào giỏ
-                      </button>
-                      <button
-                        className="action secondary"
-                        onClick={() => openDetail(product)}
-                      >
-                        Xem chi tiết
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section id="cart" className="card cart">
-          <div className="card__header">
-            <h2>Giỏ hàng</h2>
-            <span>{cart.length} sản phẩm</span>
-          </div>
-
-          {cart.length === 0 ? (
-            <p className="muted">Chưa có sản phẩm trong giỏ.</p>
-          ) : (
-            <div className="cart__list">
-              {cart.map((item) => (
-                <div key={item.id} className="cart__item">
-                  <div>
-                    <h4>{item.name}</h4>
-                    <p className="muted">{formatPrice(item.price)}</p>
-                  </div>
-                  <div className="cart__actions">
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(event) =>
-                        updateQuantity(item.id, event.target.value)
-                      }
-                    />
-                    <button
-                      className="danger"
-                      onClick={() => removeFromCart(item.id)}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-              ))}
+        {isUsersPage ? (
+          <section className="card">
+            <div className="card__header">
+              <h2>Quản lý users</h2>
+              <span>Thêm / Sửa / Xóa (CRUD) users</span>
             </div>
-          )}
 
-          <div className="cart__total">
-            <span>Tổng cộng:</span>
-            <strong>{formatPrice(total)}</strong>
-          </div>
-        </section>
+            <form className="user-form" onSubmit={submitUserForm}>
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={userEmail}
+                onChange={(event) => setUserEmail(event.target.value)}
+              />
+              <select
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value)}
+              >
+                <option value="customer">Khách hàng</option>
+                <option value="admin">Quản trị</option>
+              </select>
+              <input
+                type="text"
+                placeholder={editingUser ? 'Mật khẩu mới' : 'Mật khẩu'}
+                value={userPassword}
+                onChange={(event) => setUserPassword(event.target.value)}
+              />
+              <button type="submit" className="primary">
+                {editingUser ? 'Cập nhật' : 'Thêm mới'}
+              </button>
+              {editingUser && (
+                <button type="button" onClick={resetUserForm}>
+                  Hủy
+                </button>
+              )}
+            </form>
+
+            {usersError && (
+              <p className="muted">
+                {usersError}. Kiểm tra backend chạy ở {API_URL}.
+              </p>
+            )}
+            {!usersError && usersLoading && (
+              <p className="muted">Đang tải dữ liệu users...</p>
+            )}
+
+            <div className="table-wrapper">
+              <table className="display">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.id}</td>
+                      <td>{user.username}</td>
+                      <td>{user.email}</td>
+                      <td>{user.role}</td>
+                      <td>
+                        <div className="action-group">
+                          <button
+                            type="button"
+                            className="action"
+                            onClick={() => startEditingUser(user)}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => deleteUser(user.id)}
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
+          <>
+            <section id="products" className="card">
+              <div className="card__header">
+                <h2>Danh sách điện thoại</h2>
+                <span>
+                  DataTable: tìm kiếm, phân trang, export • {products.length}{' '}
+                  sản phẩm
+                </span>
+              </div>
+              {error && (
+                <p className="muted">
+                  {error}. Kiểm tra backend chạy ở {API_URL}.
+                </p>
+              )}
+              {!error && loading && <p className="muted">Đang tải dữ liệu...</p>}
+              <div className="table-wrapper">
+                <table ref={tableRef} className="display">
+                  <thead>
+                    <tr>
+                      <th>Hình</th>
+                      <th>Tên</th>
+                      <th>Hãng</th>
+                      <th>Giá</th>
+                      <th>Tồn kho</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((product) => (
+                      <tr key={product.id}>
+                        <td>
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="product-image"
+                            onError={(event) => {
+                              event.currentTarget.src = FALLBACK_IMAGE;
+                            }}
+                          />
+                        </td>
+                        <td>
+                          <strong>{product.name}</strong>
+                          <div className="muted">{product.category}</div>
+                        </td>
+                        <td>{product.brand}</td>
+                        <td>{formatPrice(product.price)}</td>
+                        <td>{product.stock}</td>
+                        <td>
+                          <button
+                            className="action"
+                            onClick={() => addToCart(product)}
+                          >
+                            Thêm vào giỏ
+                          </button>
+                          <button
+                            className="action secondary"
+                            onClick={() => openDetail(product)}
+                          >
+                            Xem chi tiết
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section id="cart" className="card cart">
+              <div className="card__header">
+                <h2>Giỏ hàng</h2>
+                <span>{cart.length} sản phẩm</span>
+              </div>
+
+              {cart.length === 0 ? (
+                <p className="muted">Chưa có sản phẩm trong giỏ.</p>
+              ) : (
+                <div className="cart__list">
+                  {cart.map((item) => (
+                    <div key={item.id} className="cart__item">
+                      <div>
+                        <h4>{item.name}</h4>
+                        <p className="muted">{formatPrice(item.price)}</p>
+                      </div>
+                      <div className="cart__actions">
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(event) =>
+                            updateQuantity(item.id, event.target.value)
+                          }
+                        />
+                        <button
+                          className="danger"
+                          onClick={() => removeFromCart(item.id)}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="cart__total">
+                <span>Tổng cộng:</span>
+                <strong>{formatPrice(total)}</strong>
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       <footer id="footer" className="footer">
